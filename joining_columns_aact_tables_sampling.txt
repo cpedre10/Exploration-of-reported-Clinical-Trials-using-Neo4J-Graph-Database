@@ -1,0 +1,194 @@
+CREATE TABLE public.sample_set AS 
+WITH studies AS 
+(
+  SELECT
+    * 
+  FROM
+    ctgov.studies s 
+  WHERE
+    study_type = 'Interventional' 
+  ORDER BY
+    random() LIMIT 100000
+)
+,
+countries AS 
+(
+  SELECT
+    ct.nct_id,
+    string_agg(countries.name, '$$' 
+  ORDER BY
+    countries.name) AS country_name 
+  FROM
+    studies ct 
+    INNER JOIN
+      ctgov.countries 
+      ON ct.nct_id = countries.nct_id 
+  GROUP BY
+    ct.nct_id 
+)
+,
+conditions AS 
+(
+  SELECT
+    ct.nct_id,
+    string_agg(DISTINCT conditions.name, '$$' 
+  ORDER BY
+    conditions.name) AS condition_name 
+  FROM
+    studies ct 
+    INNER JOIN
+      ctgov.conditions 
+      ON ct.nct_id = conditions.nct_id 
+  GROUP BY
+    ct.nct_id 
+)
+,
+interventions AS 
+(
+  SELECT
+    ct.nct_id,
+    string_agg(DISTINCT interventions.intervention_type, '$$' 
+  ORDER BY
+    interventions.intervention_type) AS intervention_type 
+  FROM
+    studies ct 
+    INNER JOIN
+      ctgov.interventions 
+      ON ct.nct_id = interventions.nct_id 
+  GROUP BY
+    ct.nct_id 
+)
+,
+sponsors AS 
+(
+  SELECT
+    ct.nct_id,
+    string_agg(DISTINCT sponsors.name, '$$' 
+  ORDER BY
+    sponsors.name) AS sponsors_name,
+    string_agg(DISTINCT sponsors.lead_or_collaborator, '$$' 
+  ORDER BY
+    sponsors.lead_or_collaborator) AS lead_or_collaborator,
+    string_agg(DISTINCT sponsors.agency_class , '$$' 
+  ORDER BY
+    sponsors.agency_class) AS agency_class 
+  FROM
+    studies ct 
+    INNER JOIN
+      ctgov.sponsors 
+      ON ct.nct_id = sponsors.nct_id 
+  GROUP BY
+    ct.nct_id 
+)
+,
+reported_events AS 
+(
+  SELECT
+    ct.nct_id,
+    string_agg(DISTINCT CAST(reported_events.subjects_affected AS VARCHAR), '$$' 
+  ORDER BY
+    CAST(reported_events.subjects_affected AS VARCHAR)) AS subjects_affected,
+    string_agg(DISTINCT CAST(reported_events.subjects_at_risk AS VARCHAR), '$$' 
+  ORDER BY
+    CAST(reported_events.subjects_at_risk AS VARCHAR)) AS subjects_at_risk 
+  FROM
+    studies ct 
+    INNER JOIN
+      ctgov.reported_events 
+      ON ct.nct_id = reported_events.nct_id 
+  GROUP BY
+    ct.nct_id 
+)
+,
+keywords AS 
+(
+  SELECT
+    ct.nct_id,
+    string_agg(DISTINCT CAST(keywords.name AS VARCHAR), '$$' 
+  ORDER BY
+    CAST(keywords.name AS VARCHAR)) AS keywords_name 
+  FROM
+    studies ct 
+    INNER JOIN
+      ctgov.keywords 
+      ON ct.nct_id = keywords.nct_id 
+  GROUP BY
+    ct.nct_id 
+)
+SELECT
+  studies.nct_id,
+  studies.study_type,
+  studies.phase,
+  studies.start_month_year,
+  studies.primary_completion_month_year,
+  studies.enrollment,
+  studies.has_dmc,
+  studies.overall_status,
+  studies.official_title,
+  studies.brief_title,
+  studies.why_stopped,
+  studies.enrollment_type,
+  studies.study_first_submitted_date,
+  studies.results_first_posted_date,
+  calculated_values.number_of_facilities,
+  studies.number_of_arms,
+  studies.number_of_groups,
+  countries.country_name,
+  conditions.condition_name,
+  calculated_values.actual_duration,
+  calculated_values.were_results_reported,
+  calculated_values.has_single_facility,
+  calculated_values.minimum_age_num,
+  calculated_values.maximum_age_num,
+  designs.allocation,
+  designs.masking,
+  designs.intervention_model,
+  designs.primary_purpose,
+  designs.observational_model,
+  eligibilities.gender,
+  eligibilities.healthy_volunteers,
+  eligibilities.population,
+  eligibilities. sampling_method,
+  eligibilities.gender_based,
+  eligibilities.minimum_age,
+  eligibilities.maximum_age,
+  interventions.intervention_type,
+  sponsors.sponsors_name,
+  sponsors.agency_class,
+  sponsors.lead_or_collaborator,
+  reported_events.subjects_affected,
+  reported_events.subjects_at_risk,
+  responsible_parties.responsible_party_type,
+  keywords.keywords_name 
+FROM
+  studies 
+  LEFT JOIN
+    ctgov.calculated_values 
+    ON studies.nct_id = calculated_values.nct_id 
+  LEFT JOIN
+    ctgov.designs 
+    ON studies.nct_id = designs.nct_id 
+  LEFT JOIN
+    ctgov.eligibilities 
+    ON studies.nct_id = eligibilities.nct_id 
+  LEFT JOIN
+    ctgov.responsible_parties 
+    ON studies.nct_id = responsible_parties.nct_id 
+  LEFT JOIN
+    countries 
+    ON studies.nct_id = countries.nct_id 
+  LEFT JOIN
+    conditions 
+    ON studies.nct_id = conditions.nct_id 
+  LEFT JOIN
+    interventions 
+    ON studies.nct_id = interventions.nct_id 
+  LEFT JOIN
+    sponsors 
+    ON studies.nct_id = sponsors.nct_id 
+  LEFT JOIN
+    reported_events 
+    ON studies.nct_id = reported_events.nct_id 
+  LEFT JOIN
+    keywords 
+    ON studies.nct_id = keywords.nct_id;

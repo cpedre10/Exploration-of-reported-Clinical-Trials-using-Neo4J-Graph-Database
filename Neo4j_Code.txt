@@ -1,0 +1,317 @@
+---------------------------------Expanded Access---------------------
+\\Unique Constraints\\
+
+CREATE CONSTRAINT on (cdt:Condition) ASSERT cdt.condition IS UNIQUE;
+CREATE CONSTRAINT on (i: InterventionType ) ASSERT i. interventiontype IS UNIQUE;
+CREATE CONSTRAINT on (cu:Country) ASSERT cu.country IS UNIQUE;
+CREATE CONSTRAINT on (st:Status) ASSERT st.overall_status IS UNIQUE;
+CREATE CONSTRAINT on (tt:Type) ASSERT tt.study_type IS UNIQUE;
+CREATE CONSTRAINT on (dm:DMC) ASSERT dm.has_dmc IS UNIQUE;
+CREATE CONSTRAINT on (fa: Facilities) ASSERT fa. number_of_facilities_bins IS UNIQUE;
+CREATE CONSTRAINT on (gg: Gender) ASSERT gg. gender IS UNIQUE;
+CREATE CONSTRAINT on (hh: Volunteer ) ASSERT hh.healthy_volunteers IS UNIQUE;
+CREATE CONSTRAINT on (aa: Agency) ASSERT aa.Agency_Class_Lead IS UNIQUE;
+CREATE CONSTRAINT on (ma: MinAge ) ASSERT ma.minimum_age_bins IS UNIQUE;
+CREATE CONSTRAINT on (mxa: MaxAge ) ASSERT mxa. max_age_bins IS UNIQUE;
+
+\\Load Data & Create Nodes\\
+ 
+LOAD CSV WITH HEADERS FROM 
+'file:///ExpandedAccess_cleaned_final.csv' AS line
+UNWIND split(line.condition_name, "$$") AS condition
+merge (c:Condition {condition:condition})
+return c
+ 
+LOAD CSV WITH HEADERS FROM 
+'file:///ExpandedAccess_cleaned_final.csv' AS line
+UNWIND split(line.intervention_type, "$$") AS interventiontype
+merge (it:InterventionType {interventiontype:interventiontype})
+return it
+ 
+LOAD CSV WITH HEADERS FROM 'file:///ExpandedAccess_cleaned_final.csv' AS line
+UNWIND split(line.country_name, "$$") AS country
+merge (co:Country{country:country})
+return co
+
+LOAD CSV WITH HEADERS FROM 'file:///ExpandedAccess_cleaned_final.csv' AS line
+MERGE (s:Status {name: line.overall_status})
+MERGE (type:Type {name: line.study_type})
+MERGE(dmc:HasDMC{name:line.has_dmc})
+MERGE(f:Facilities{name:line.number_of_facilities_bins})
+MERGE (g:Gender{name: line.gender})
+MERGE (h:Volunteer {name:line.healthy_volunteers})
+MERGE (b:GenderBased{name: line.gender_based})
+MERGE (a:Agency{name: line.Agency_Class_Lead})
+MERGE(min_age:MinAge {name: line.minimum_age_bins})
+MERGE(max_age:MaxAge {name: line.max_age_bins})
+
+MERGE (year)-[:start_year]->(type)
+MERGE (year)-[:start_year_study]->(study)
+MERGE (type)-[:trials_type]->(study)
+MERGE (study)-[:trials_status]->(s)
+MERGE (s)-[:trials_agency]->(a)
+MERGE (a)-[:trials_facilities]->(f)
+MERGE (a)-[:trials_fundedby]->(sponsor)
+MERGE (s)-[:trials_sponsorby]->(sponsor)
+MERGE (sponsor)-[:sponsor_country]->(co)
+MERGE (sponsor)-[:trials_dmc]->(dmc)
+MERGE (co)-[:condition]->(c)
+MERGE (c)-[:trials_volunteers]->(h)
+MERGE (c)-[:has_min_age]->(min_age)
+MERGE (c)-[:has_max_age]->(max_age)
+MERGE (c)-[:has_gender_criteria]->(g)
+MERGE (c)-[:condition_interventionType]->(it)
+
+----------------------- Observations Studies --------------------------
+____________________Nodes That needed a Split________________________
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+WITH SPLIT (line.study_first_submitted_date, '/') AS date
+merge (year:Year {name:date[2]})
+return year
+
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+UNWIND split(line.condition_name, "$$") AS condition
+merge (c:Condition {condition:condition})
+return c
+
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+UNWIND split(line.intervention_type, "$$") AS interventiontype
+merge (it:InterventionType {interventiontype:interventiontype})
+return it
+
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+UNWIND split(line.country_name, "$$") AS country
+merge (co:Country{country:country})
+return co
+____________________Nodes________________________
+
+LOAD CSV WITH HEADERS FROM 'file:///Observational_cleaned_final.csv' AS line
+MERGE(study:Study {name:line.nct_id}) SET study.study_title=line.brief_title
+MERGE (s:Status {name: line.overall_status})
+MERGE (type:Type {name: line.study_type})
+MERGE(dr:Duration{name:line.actual_duration})
+MERGE(dmc:HasDMC{name:line.has_dmc})
+MERGE(f:Facilities{name:line.number_of_facilities_bins})
+MERGE(gr:Groups{name:line.number_of_groups_bins})
+MERGE (g:Gender{name: line.gender})
+MERGE (h:Volunteer {name:line.healthy_volunteers})
+MERGE (b:GenderBased{name: line.gender_based})
+MERGE (sponsor:Sponsor {name: line.lead_Sponsor})
+MERGE (a:Agency{name: line.Agency_Class_Lead})
+MERGE(min_age:MinAge {name: line.minimum_age_bins})
+MERGE(max_age:MaxAge {name: line.maximum_age_bins})
+MERGE(et:EnrollmentType{name: line.enrollment_type})
+MERGE(om:Model{name:line.observational_model})
+MERGE(sm:Sampling{name:line.sampling_method})
+MERGE(sa:Affected{name:line.subjects_affected_binary})
+MERGE(sr:Risk{name:line.subjects_at_risk_binary})
+MERGE(e:Enrollment{name:line.enrollment_bins})
+
+MERGE (year)-[:start_year]->(type)
+MERGE (year)-[:duration]->(dr)
+MERGE (year)-[:start_year_study]->(study)
+MERGE (type)-[:trials_type]->(study)
+MERGE (study)-[:trials_status]->(s)
+MERGE (s)-[:trials_agency]->(a)
+MERGE (a)-[:trials_facilities]->(f)
+MERGE (a)-[:trials_fundedby]->(sponsor)
+MERGE (s)-[:trials_sponsorby]->(sponsor)
+MERGE (sponsor)-[:trials_dmc]->(dmc)
+MERGE (g)-[:has_gender_based]->(b)
+MERGE (et)-[:enrollment_bin]->( e)
+MERGE (sa)-[:subjects_at_risk]->(sr)
+merge (c)-[:condition]->(year)
+MERGE (sponsor)-[:sponsor_country]->(co)*
+MERGE (co)-[:condition]->(c)
+MERGE (c)-[:trials_volunteers]->(h)
+MERGE (c)-[:has_min_age]->(min_age)
+MERGE (c)-[:has_max_age]->(max_age)
+MERGE (c)-[:has_gender_criteria]->(g)
+MERGE (c)-[:condition_interventionType]->(it)
+MERGE (c)-[:groups]->(gr)
+MERGE (c)-[:enrollment_type]->(et)
+MERGE (om)-[:observational_model]->©
+
+MERGE (sm)-[:sampling]->(c)
+MERGE (c)-[:subjects_affected]->(sa)
+
+----------------------------- Interventional Studies -----------------
+____________________Nodes That needed a Split________________________
+LOAD CSV WITH HEADERS FROM 
+'file:/// Interventional_cleaned_final_sample.csv' AS line
+WITH SPLIT (line.study_first_submitted_date, '/') AS date
+merge (year:Year {name:date[2]})
+return year
+
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+UNWIND split(line.condition_name, "$$") AS condition
+merge (c:Condition {condition:condition})
+return c
+
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+UNWIND split(line.intervention_type, "$$") AS interventiontype
+merge (it:InterventionType {interventiontype:interventiontype})
+return it
+
+LOAD CSV WITH HEADERS FROM 
+'file:///PatientRegistry_cleaned_final.csv' AS line
+UNWIND split(line.country_name, "$$") AS country
+merge (co:Country{country:country})
+return co
+____________________Nodes________________________
+
+LOAD CSV WITH HEADERS FROM 'file:///Observational_cleaned_final.csv' AS line
+MERGE(study:Study {name:line.nct_id}) SET study.study_title=line.brief_title
+MERGE (s:Status {name: line.overall_status})
+MERGE(p:Phase{name:line.phase})
+MERGE (type:Type {name: line.study_type})
+MERGE(r:Results{name:line.were_results_reported})
+MERGE(mas:Masking{name:line.masking})
+MERGE(pp:PrimaryPurpose{name:line.primary_purpose})
+MERGE(a:Allocation{name:line.allocation})
+MERGE(m:Model{name:line.intervention_model})
+MERGE(dr:Duration{name:line.actual_duration})
+MERGE(dmc:HasDMC{name:line.has_dmc})
+MERGE(f:Facilities{name:line.number_of_facilities_bins})
+MERGE(arm:Arms{name:line.number_of_arms_bins})
+MERGE (g:Gender{name: line.gender})
+MERGE (h:Volunteer {name:line.healthy_volunteers})
+MERGE (b:GenderBased{name: line.gender_based})
+MERGE (sponsor:Sponsor {name: line.lead_Sponsor})
+MERGE (a:Agency{name: line.Agency_Class_Lead})
+MERGE(min_age:MinAge {name: line.minimum_age_bins})
+MERGE(max_age:MaxAge {name: line.maximum_age_bins})
+MERGE(et:EnrollmentType{name: line.enrollment_type})
+MERGE(sa:Affected{name:line.subjects_affected_binary})
+MERGE(sr:Risk{name:line.subjects_at_risk_binary})
+MERGE(e:Enrollment{name:line.enrollment_bins})
+
+MERGE (year)-[:start_year]->(type)
+MERGE (year)-[:duration]->(dr)
+MERGE (year)-[:start_year_study]->(study)
+MERGE (type)-[:trials_type]->(study)
+MERGE (study)-[:trials_status]->(s)
+MERGE (s)-[:trials_agency]->(a)
+MERGE (a)-[:trials_facilities]->(f)
+MERGE (a)-[:trials_fundedby]->(sponsor)
+MERGE (s)-[:trials_sponsorby]->(sponsor)
+MERGE (sponsor)-[:trials_dmc]->(dmc)
+MERGE (g)-[:has_gender_based]->(b)
+MERGE (et)-[:enrollment_bin]->( e)
+MERGE (sa)-[:subjects_at_risk]->(sr)
+merge (c)-[:condition]->(year)
+MERGE (sponsor)-[:sponsor_country]->(co)*
+MERGE (co)-[:condition]->(c)
+merge (g)-[:min_age_gender]->(min_age)
+MERGE (c)-[:has_min_age]->(min_age)
+MERGE (c)-[:has_max_age]->(max_age)
+MERGE (e)-[:has_gender_criteria]->(g)
+MERGE (m)-[:condition_interventionType]->(it)
+MERGE (e)-[:enrollment_type]->(et)
+MERGE (c)-[:subjects_affected]->(sa)
+
+----------------------------- All Studies ----------------------
+____________________Nodes That needed a Split________________________
+LOAD CSV WITH HEADERS FROM 
+'file:///All_Studies.csv' AS line
+WITH SPLIT (line.study_first_submitted_date, '/') AS date
+merge (year:Year {name:date[2]})
+return year
+
+LOAD CSV WITH HEADERS FROM 
+'file:///All_Studies.csv' AS line
+UNWIND split(line.condition_name, "$$") AS condition
+merge (c:Condition {condition:condition})
+return c
+
+LOAD CSV WITH HEADERS FROM 
+'file:///All_Studies.csv' AS line
+UNWIND split(line.intervention_type, "$$") AS interventiontype
+merge (it:InterventionType {interventiontype:interventiontype})
+return it
+
+LOAD CSV WITH HEADERS FROM 
+'file:///All_STudies.csv' AS line
+UNWIND split(line.country_name, "$$") AS country
+merge (co:Country{country:country})
+return co
+____________________Nodes________________________
+
+
+LOAD CSV WITH HEADERS FROM 'file:///All_Studies.csv' AS line
+MERGE(study:Study {name:line.nct_id}) SET study.study_title=line.brief_title
+MERGE (s:Status {name: line.overall_status})
+MERGE(p:Phase{name:line.phase})
+MERGE (type:Type {name: line.study_type})
+MERGE(r:Results{name:line.were_results_reported})
+MERGE(mas:Masking{name:line.masking})
+MERGE(pp:PrimaryPurpose{name:line.primary_purpose})
+MERGE(al:Allocation{name:line.allocation})
+MERGE(m:Model{name:line.intervention_model})
+MERGE(dr:Duration{name:line.actual_duration})
+MERGE(dmc:HasDMC{name:line.has_dmc})
+MERGE(f:Facilities{name:line.number_of_facilities_bins})
+MERGE(arm:Arms{name:line.number_of_arms_bins})
+MERGE (g:Gender{name: line.gender})
+MERGE (h:Volunteer {name:line.healthy_volunteers})
+MERGE(om:Model{name:line.observational_model})
+MERGE(sm:Sampling{name:line.sampling_method})
+MERGE (b:GenderBased{name: line.gender_based})
+MERGE(gr:Groups{name:line.number_of_groups_bins})
+MERGE (sponsor:Sponsor {name: line.lead_Sponsor})
+MERGE (a:Agency{name: line.Agency_Class_Lead})
+MERGE(min_age:MinAge {name: line.minimum_age_bins})
+MERGE(max_age:MaxAge {name: line.maximum_age_bins})
+MERGE(et:EnrollmentType{name: line.enrollment_type})
+MERGE(sa:Affected{name:line.subjects_affected_binary})
+MERGE(sr:Risk{name:line.subjects_at_risk_binary})
+MERGE(e:Enrollment{name:line.enrollment_bins})
+
+MERGE (year)-[:start_year]->(type)
+MERGE (year)-[:duration]->(dr)
+MERGE (year)-[:start_year_study]->(study)
+MERGE (type)-[:trials_type]->(study)
+MERGE (study)-[:trials_status]->(s)
+MERGE (s)-[:trials_agency]->(a)
+MERGE (a)-[:trials_facilities]->(f)
+MERGE (a)-[:trials_fundedby]->(sponsor)
+MERGE (s)-[:trials_sponsorby]->(sponsor)
+MERGE (sponsor)-[:trials_dmc]->(dmc)
+MERGE (g)-[:has_gender_based]->(b)
+MERGE (et)-[:enrollment_bin]->( e)
+MERGE (sa)-[:subjects_at_risk]->(sr)
+merge (c)-[:condition]->(year)
+MERGE (sponsor)-[:sponsor_country]->(co)
+MERGE (co)-[:condition_country]->(c)
+merge (g)-[:min_age_gender]->(min_age)
+MERGE (c)-[:has_min_age]->(min_age)
+MERGE (c)-[:has_max_age]->(max_age)
+MERGE (e)-[:has_gender_criteria]->(g)
+MERGE (c)-[:condition_interventionType]->(it)
+MERGE (c)-[:subjects_affected]->(sa)
+merge (p)-[:Allocation]->(al)
+merge (sponsor)-[:Affected_bySponsor]->(sa)
+merge (pp)-[:model]->(m)
+
+-------------- Knowledge grapgh Visualisation -------------------
+CALL db.schema.visualization()
+
+
+------------- Create grapgh cyper to analsye Nodes -----------------
+CALL gds.graph.create.cypher(
+    'trials-graph',
+    'MATCH (n) RETURN id(n) AS id',
+    'MATCH (n)--(m) RETURN id(n) AS source, id(m) AS target'
+)
+
+----------------- Louvain Analysis ------------------------
+CALL gds.louvain.stream('trials-graph')
+YIELD nodeId, communityId, intermediateCommunityIds
+RETURN gds.util.asNode(nodeId).name AS name, communityId, intermediateCommunityIds
+ORDER BY name ASC
